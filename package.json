@@ -1,0 +1,19 @@
+{
+  "name": "azure-openai-proxy",
+  "version": "1.0.0",
+  "description": "Tiny proxy that bridges OpenAI SDK tools to Azure OpenAI endpoints (including Responses API models like Codex)",
+  "type": "module",
+  "main": "proxy.mjs",
+  "scripts": {
+    "start": "bun proxy.mjs"
+  },
+  "keywords": [
+    "azure",
+    "openai",
+    "proxy",
+    "opencode",
+    "codex",
+    "responses-api"
+  ],
+  "license": "MIT"
+}
