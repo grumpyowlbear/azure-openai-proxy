@@ -21,6 +21,7 @@ if (AZURE_BASE.includes("YOUR-RESOURCE")) {
 
 Bun.serve({
   port: PORT,
+  idleTimeout: 255, // max seconds to keep connection alive between chunks (default 10)
   async fetch(req) {
     const url = new URL(req.url)
     const sep = url.search ? "&" : "?"
@@ -36,16 +37,28 @@ Bun.serve({
       headers.delete("authorization")
     }
 
+    // Buffer request body to avoid stream-forwarding issues
+    const body =
+      req.method !== "GET" && req.method !== "HEAD"
+        ? await req.arrayBuffer()
+        : undefined
+
     try {
       const response = await fetch(target, {
         method: req.method,
         headers,
-        body: req.body,
+        body,
+        // Prevent Bun from applying a default timeout on the upstream fetch
+        signal: AbortSignal.timeout(300_000), // 5 minutes
       })
+
+      // Copy response headers and ensure chunked streaming stays open
+      const resHeaders = new Headers(response.headers)
+      resHeaders.delete("content-length") // let Bun handle chunked encoding
 
       return new Response(response.body, {
         status: response.status,
-        headers: response.headers,
+        headers: resHeaders,
       })
     } catch (err) {
       console.error("Proxy error:", err.message)
