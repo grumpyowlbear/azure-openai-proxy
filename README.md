@@ -29,6 +29,7 @@ The proxy listens on `http://localhost:18924` by default.
 |----------|---------|-------------|
 | `AZURE_OPENAI_BASE_URL` | _(required)_ | Your Azure OpenAI base URL |
 | `AZURE_API_VERSION` | `2025-03-01-preview` | Azure API version string |
+| `UPSTREAM_TIMEOUT_MS` | `1800000` | Hard cap on the outbound fetch to Azure in milliseconds (30 min default, `0` disables) |
 | `PORT` | `18924` | Local port to listen on |
 
 ## OpenCode setup

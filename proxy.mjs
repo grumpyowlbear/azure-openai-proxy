@@ -5,12 +5,14 @@
 // This lets tools like OpenCode use Azure-hosted models (including Responses API
 // models like Codex) that the SDK can't reach directly due to URL pattern mismatches.
 
-const AZURE_BASE =
+const RAW_AZURE_BASE =
   process.env.AZURE_OPENAI_BASE_URL ||
   "https://YOUR-RESOURCE.cognitiveservices.azure.com/openai"
+const AZURE_BASE = RAW_AZURE_BASE.replace(/\/+$/, "")
 
 const API_VERSION = process.env.AZURE_API_VERSION || "2025-03-01-preview"
 const PORT = parseInt(process.env.PORT || "18924", 10)
+const UPSTREAM_TIMEOUT_MS = parseInt(process.env.UPSTREAM_TIMEOUT_MS || "1800000", 10)
 
 if (AZURE_BASE.includes("YOUR-RESOURCE")) {
   console.error(
@@ -22,10 +24,13 @@ if (AZURE_BASE.includes("YOUR-RESOURCE")) {
 Bun.serve({
   port: PORT,
   idleTimeout: 255, // max seconds to keep connection alive between chunks (default 10)
-  async fetch(req) {
+  async fetch(req, server) {
+    server.timeout(req, 0) // disable per-request timeout for long-running streams
     const url = new URL(req.url)
-    const sep = url.search ? "&" : "?"
-    const target = `${AZURE_BASE}${url.pathname}${url.search}${sep}api-version=${API_VERSION}`
+    const target = new URL(AZURE_BASE)
+    target.pathname = `${target.pathname.replace(/\/+$/, "")}${url.pathname}`
+    target.search = url.search
+    target.searchParams.set("api-version", API_VERSION)
 
     const headers = new Headers(req.headers)
     headers.delete("host")
@@ -48,8 +53,10 @@ Bun.serve({
         method: req.method,
         headers,
         body,
-        // Prevent Bun from applying a default timeout on the upstream fetch
-        signal: AbortSignal.timeout(300_000), // 5 minutes
+        signal:
+          UPSTREAM_TIMEOUT_MS > 0
+            ? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+            : undefined,
       })
 
       // Copy response headers and ensure chunked streaming stays open
@@ -71,4 +78,6 @@ Bun.serve({
 })
 
 console.log(`Azure OpenAI proxy listening on http://localhost:${PORT}`)
-console.log(`  → ${AZURE_BASE}  (api-version=${API_VERSION})`)
+console.log(
+  `  → ${AZURE_BASE}  (api-version=${API_VERSION}, fetch-timeout=${UPSTREAM_TIMEOUT_MS ? UPSTREAM_TIMEOUT_MS + "ms" : "none"})`,
+)
